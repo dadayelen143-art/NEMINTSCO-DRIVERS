@@ -22,6 +22,26 @@ const pick = (row, start) => {
   return k ? row[k] : undefined
 }
 
+/* ---------- 24-hour countdown (Manila time, resets at midnight) ---------- */
+
+function useCountdown() {
+  const calc = () => {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))
+    const end = new Date(now)
+    end.setHours(24, 0, 0, 0)
+    return Math.max(0, Math.floor((end - now) / 1000))
+  }
+  const [s, setS] = useState(calc)
+  useEffect(() => {
+    const t = setInterval(() => setS(calc()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return s
+}
+const hms = (s) =>
+  [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
+    .map((n) => String(n).padStart(2, '0')).join(':')
+
 /* ---------- small shared pieces ---------- */
 
 function Logo() {
@@ -117,6 +137,8 @@ function Driver() {
   const [date, setDate] = useState(todayPH())
   const [rows, setRows] = useState([])
   const [updated, setUpdated] = useState(null)
+  const left = useCountdown()
+  const isToday = date === todayPH()
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('orders').select('pay,distance').eq('work_date', date)
@@ -138,7 +160,12 @@ function Driver() {
       <div className="driver-grid">
         <div className="col">
           <section className="card hero">
-            <span className="chip">Daily quest</span>
+            <div className="hero-top">
+              <span className="chip">Daily quest</span>
+              <span className="timer" title="Time left before the daily cut-off (12:00 midnight)">
+                ⏱ {isToday ? hms(left) : 'Day closed'}
+              </span>
+            </div>
             <span className="muted">Earnings</span>
             <strong className="big">{peso(earn)}</strong>
             <div className="bar" role="progressbar" aria-valuemin="0" aria-valuemax="2200" aria-valuenow={Math.min(earn, 2200)}>
