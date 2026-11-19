@@ -154,6 +154,26 @@ input{
 .modal{max-width:420px;width:100%;margin:0;gap:12px;padding:22px}
 .modal p{margin:0}
 
+/* ---------- admin: upload indicator ---------- */
+.sync{gap:10px;border-left:6px solid var(--green)}
+.sync.soon{border-left-color:var(--sun)}
+.sync.late{border-left-color:var(--red)}
+.sync-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sync-text{display:flex;flex-direction:column;flex:1 1 180px;min-width:0}
+.dot{
+  flex:none;width:12px;height:12px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 0 rgba(47,168,79,.5);animation:pulse 2s infinite;
+}
+.sync.soon .dot{background:var(--sun);box-shadow:0 0 0 0 rgba(247,181,0,.5)}
+.sync.late .dot{background:var(--red);box-shadow:0 0 0 0 rgba(214,69,69,.5)}
+.sync-timer{background:var(--ink)}
+.sync.late .sync-timer{background:var(--red)}
+.sync-bar{height:8px;background:var(--line);margin:0}
+.sync-bar i{background:var(--green)}
+.sync.soon .sync-bar i{background:var(--sun)}
+.sync.late .sync-bar i{background:var(--red)}
+@keyframes pulse{70%{box-shadow:0 0 0 10px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}}
+
 /* ---------- tablet and up ---------- */
 @media (min-width:720px){
   .wrap{padding:24px 24px 56px}

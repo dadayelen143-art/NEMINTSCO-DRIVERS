@@ -42,6 +42,72 @@ const hms = (s) =>
   [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
     .map((n) => String(n).padStart(2, '0')).join(':')
 
+/* ---------- admin: 2-hour upload indicator ---------- */
+
+const CYCLE = 2 * 60 * 60 // CSV is uploaded about every 2 hours (seconds)
+
+function UploadStatus({ refreshKey }) {
+  const [last, setLast] = useState(undefined) // undefined = loading, null = never
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const load = () =>
+      supabase.from('upload_log').select('uploaded_at')
+        .order('uploaded_at', { ascending: false }).limit(1).maybeSingle()
+        .then(({ data }) => setLast(data ? new Date(data.uploaded_at).getTime() : null))
+    load()
+    const t = setInterval(load, 60000)
+    return () => clearInterval(t)
+  }, [refreshKey])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (last === undefined) return null
+
+  if (last === null) {
+    return (
+      <section className="card sync late">
+        <div className="sync-row">
+          <span className="dot" />
+          <div className="sync-text">
+            <strong>No upload recorded yet</strong>
+            <span className="muted small">Upload a CSV to start the 2-hour cycle.</span>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const elapsed = Math.max(0, Math.floor((now - last) / 1000))
+  const left = CYCLE - elapsed
+  const overdue = left < 0
+  const state = overdue ? 'late' : left <= 15 * 60 ? 'soon' : 'ok'
+  const pct = Math.min(100, (elapsed / CYCLE) * 100)
+  const ago = elapsed < 3600
+    ? `${Math.floor(elapsed / 60)} min ago`
+    : `${Math.floor(elapsed / 3600)}h ${String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0')}m ago`
+  const at = new Date(last).toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' })
+
+  return (
+    <section className={`card sync ${state}`}>
+      <div className="sync-row">
+        <span className="dot" />
+        <div className="sync-text">
+          <strong>{overdue ? 'Upload overdue' : state === 'soon' ? 'Upload due soon' : 'Data is up to date'}</strong>
+          <span className="muted small">Last upload {at} ({ago})</span>
+        </div>
+        <span className="timer sync-timer" title="Records should be uploaded about every 2 hours">
+          {overdue ? `+${hms(-left)} late` : `Next in ${hms(left)}`}
+        </span>
+      </div>
+      <div className="bar sync-bar"><i style={{ width: pct + '%' }} /></div>
+    </section>
+  )
+}
+
 /* ---------- small shared pieces ---------- */
 
 function Logo() {
@@ -210,13 +276,15 @@ function Driver() {
 
 function Admin() {
   const [tab, setTab] = useState('drivers')
+  const [synced, setSynced] = useState(0)
   return (
     <>
+      <UploadStatus refreshKey={synced} />
       <nav className="tabs">
         <button className={tab === 'drivers' ? 'primary' : 'ghost'} onClick={() => setTab('drivers')}>All drivers</button>
         <button className={tab === 'upload' ? 'primary' : 'ghost'} onClick={() => setTab('upload')}>Upload CSV</button>
       </nav>
-      {tab === 'drivers' ? <Drivers /> : <Upload />}
+      {tab === 'drivers' ? <Drivers /> : <Upload onUploaded={() => setSynced((n) => n + 1)} />}
     </>
   )
 }
@@ -354,7 +422,7 @@ function Drivers() {
   )
 }
 
-function Upload() {
+function Upload({ onUploaded }) {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -382,6 +450,8 @@ function Upload() {
           const { error } = await supabase.from('orders').upsert(rows.slice(i, i + 500), { onConflict: 'order_id' })
           if (error) { setBusy(false); return setMsg('Upload failed: ' + error.message) }
         }
+        await supabase.from('upload_log').insert({ rows_count: rows.length })
+        onUploaded?.()
         setMsg(`Done. ${rows.length} orders saved${skipped ? `, ${skipped} rows skipped (missing Order ID, Sap Profile Id or Create Time)` : ''}.`)
         setBusy(false); e.target.value = ''
       },
