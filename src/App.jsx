@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+// src/App.jsx
+import { useEffect, useState, useCallback, createContext, useContext } from 'react'
 import Papa from 'papaparse'
 import { supabase } from './supabase'
+import { TRANSLATIONS } from './i18n'
 
-// [minimum daily earnings, basic rate]. Total with cash advance is always ₱500.
 const TIERS = [[1700, 0], [1800, 100], [1900, 200], [2000, 300], [2100, 400], [2200, 500]]
 const peso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const todayPH = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
@@ -10,9 +11,9 @@ const todayPH = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/M
 function workDate(s) {
   if (!s) return null
   s = String(s).trim()
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/) // 2026-11-16
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (m) return `${m[1]}-${m[2]}-${m[3]}`
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/) // 11/16/2026 23:59 (month/day/year)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
   if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
   return null
 }
@@ -22,8 +23,43 @@ const pick = (row, start) => {
   return k ? row[k] : undefined
 }
 
-/* ---------- 24-hour countdown (Manila time, resets at midnight) ---------- */
+/* ---------- i18n Context ---------- */
+const LangContext = createContext()
+const useLang = () => useContext(LangContext)
 
+/* ---------- theme ---------- */
+function useTheme() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+  return [theme, setTheme]
+}
+
+function ThemeToggle({ theme, setTheme }) {
+  return (
+    <button
+      className="icon ghost"
+      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+    >
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  )
+}
+
+function LangToggle({ lang, setLang }) {
+  return (
+    <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ width: 'auto', padding: '6px 12px', borderRadius: '999px', fontSize: '14px', fontWeight: '600' }}>
+      <option value="en">EN</option>
+      <option value="tl">TL</option>
+      <option value="ceb">CEB</option>
+    </select>
+  )
+}
+
+/* ---------- 24-hour countdown ---------- */
 function useCountdown() {
   const calc = () => {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))
@@ -43,11 +79,10 @@ const hms = (s) =>
     .map((n) => String(n).padStart(2, '0')).join(':')
 
 /* ---------- admin: 2-hour upload indicator ---------- */
-
-const CYCLE = 2 * 60 * 60 // CSV is uploaded about every 2 hours (seconds)
+const CYCLE = 2 * 60 * 60
 
 function UploadStatus({ refreshKey }) {
-  const [last, setLast] = useState(undefined) // undefined = loading, null = never
+  const [last, setLast] = useState(undefined)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -66,29 +101,24 @@ function UploadStatus({ refreshKey }) {
   }, [])
 
   if (last === undefined) return null
-
-  if (last === null) {
-    return (
-      <section className="card sync late">
-        <div className="sync-row">
-          <span className="dot" />
-          <div className="sync-text">
-            <strong>No upload recorded yet</strong>
-            <span className="muted small">Upload a CSV to start the 2-hour cycle.</span>
-          </div>
+  if (last === null) return (
+    <section className="card sync late">
+      <div className="sync-row">
+        <span className="dot" />
+        <div className="sync-text">
+          <strong>No upload recorded yet</strong>
+          <span className="muted small">Upload a CSV to start the 2-hour cycle.</span>
         </div>
-      </section>
-    )
-  }
+      </div>
+    </section>
+  )
 
   const elapsed = Math.max(0, Math.floor((now - last) / 1000))
   const left = CYCLE - elapsed
   const overdue = left < 0
   const state = overdue ? 'late' : left <= 15 * 60 ? 'soon' : 'ok'
   const pct = Math.min(100, (elapsed / CYCLE) * 100)
-  const ago = elapsed < 3600
-    ? `${Math.floor(elapsed / 60)} min ago`
-    : `${Math.floor(elapsed / 3600)}h ${String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0')}m ago`
+  const ago = elapsed < 3600 ? `${Math.floor(elapsed / 60)} min ago` : `${Math.floor(elapsed / 3600)}h ${String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0')}m ago`
   const at = new Date(last).toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' })
 
   return (
@@ -99,9 +129,7 @@ function UploadStatus({ refreshKey }) {
           <strong>{overdue ? 'Upload overdue' : state === 'soon' ? 'Upload due soon' : 'Data is up to date'}</strong>
           <span className="muted small">Last upload {at} ({ago})</span>
         </div>
-        <span className="timer sync-timer" title="Records should be uploaded about every 2 hours">
-          {overdue ? `+${hms(-left)} late` : `Next in ${hms(left)}`}
-        </span>
+        <span className="timer sync-timer">{overdue ? `+${hms(-left)} late` : `Next in ${hms(left)}`}</span>
       </div>
       <div className="bar sync-bar"><i style={{ width: pct + '%' }} /></div>
     </section>
@@ -109,10 +137,7 @@ function UploadStatus({ refreshKey }) {
 }
 
 /* ---------- small shared pieces ---------- */
-
-function Logo() {
-  return <span className="logo" aria-hidden="true">🚕</span>
-}
+function Logo() { return <span className="logo" aria-hidden="true">🚕</span> }
 
 function Stat({ icon, label, value }) {
   return (
@@ -127,10 +152,11 @@ function Stat({ icon, label, value }) {
 }
 
 /* ---------- app shell ---------- */
-
 export default function App() {
   const [session, setSession] = useState(undefined)
   const [profile, setProfile] = useState(null)
+  const [theme, setTheme] = useTheme()
+  const [lang, setLang] = useState('en')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -145,47 +171,59 @@ export default function App() {
   }, [session])
 
   if (session === undefined) return <p className="center">Loading…</p>
-  if (!session) return <Login />
+  if (!session) return <Login theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />
   if (!profile) return <p className="center">Loading…</p>
 
   const isAdmin = profile.role === 'admin'
 
   return (
-    <main className={isAdmin ? 'wrap wide' : 'wrap'}>
-      <header className="top">
-        <div className="who">
-          <Logo />
-          <div>
-            <h1>{isAdmin ? 'Admin' : profile.full_name || 'Driver'}</h1>
-            {profile.sap_profile_id && <span className="muted">ID {profile.sap_profile_id}</span>}
+    <LangContext.Provider value={TRANSLATIONS[lang]}>
+      <main className={isAdmin ? 'wrap wide' : 'wrap'}>
+        <header className="top">
+          <div className="who">
+            <Logo />
+            <div>
+              <h1>{isAdmin ? 'Admin' : profile.full_name || 'Driver'}</h1>
+              {profile.sap_profile_id && <span className="muted">ID {profile.sap_profile_id}</span>}
+            </div>
           </div>
-        </div>
-        <button className="ghost" onClick={() => supabase.auth.signOut()}>Sign out</button>
-      </header>
-      {profile.missing
-        ? <p className="card">Your account isn’t set up yet. Please contact your dispatcher.</p>
-        : isAdmin ? <Admin /> : <Driver />}
-    </main>
+          <div className="top-right">
+            <LangToggle lang={lang} setLang={setLang} />
+            <ThemeToggle theme={theme} setTheme={setTheme} />
+            <button className="ghost" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          </div>
+        </header>
+        {profile.missing
+          ? <p className="card">Your account isn't set up yet. Please contact your dispatcher.</p>
+          : isAdmin ? <Admin /> : <Driver profile={profile} />}
+      </main>
+    </LangContext.Provider>
   )
 }
 
-function Login() {
+function Login({ theme, setTheme, lang, setLang }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) setErr(error.message)
     setBusy(false)
   }
+
   return (
     <main className="wrap login">
+      <div className="login-tools">
+        <LangToggle lang={lang} setLang={setLang} />
+        <ThemeToggle theme={theme} setTheme={setTheme} />
+      </div>
       <section className="login-copy">
         <span className="logo big-logo" aria-hidden="true">🚕</span>
         <h1 className="brand">Earn <span className="accent">Smarter.</span><br />Hit your <span className="accent">quota.</span></h1>
-        <p className="muted lead">Sign in to see today’s earnings, kilometers and how close you are to the next tier. Powered by NEMINTSCO-GSM</p>
+        <p className="muted lead">Sign in to see today's earnings, kilometers and how close you are to the next tier. Powered by NEMINTSCO-GSM</p>
       </section>
       <form className="card login-card" onSubmit={submit}>
         <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
@@ -198,20 +236,40 @@ function Login() {
 }
 
 /* ---------- driver ---------- */
-
-function Driver() {
+function Driver({ profile }) {
+  const t = useLang()
   const [date, setDate] = useState(todayPH())
   const [rows, setRows] = useState([])
+  const [history, setHistory] = useState([])
   const [updated, setUpdated] = useState(null)
   const left = useCountdown()
   const isToday = date === todayPH()
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('orders').select('pay,distance').eq('work_date', date)
-    setRows(data || []); setUpdated(new Date())
-  }, [date])
+    const { data: todayData } = await supabase.from('orders').select('pay,distance')
+      .eq('work_date', date).eq('sap_profile_id', profile.sap_profile_id)
+    setRows(todayData || [])
+    
+    // Fetch history for the last 30 days
+    const past30 = new Date(); past30.setDate(past30.getDate() - 30)
+    const past30Str = past30.toLocaleDateString('en-CA')
+    const { data: histData } = await supabase.from('orders').select('work_date,pay')
+      .eq('sap_profile_id', profile.sap_profile_id).gte('work_date', past30Str)
+    setHistory(histData || [])
+    
+    setUpdated(new Date())
+  }, [date, profile.sap_profile_id])
 
-  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [load])
+  useEffect(() => {
+    load()
+
+    const channel = supabase.channel('driver-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `sap_profile_id=eq.${profile.sap_profile_id}` }, () => {
+        load()
+      }).subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [load, profile.sap_profile_id])
 
   const earn = rows.reduce((s, r) => s + Number(r.pay), 0)
   const km = rows.reduce((s, r) => s + Number(r.distance), 0)
@@ -220,39 +278,57 @@ function Driver() {
   const basic = idx >= 0 ? TIERS[idx][1] : 0
   const pct = Math.min(100, (earn / 2200) * 100)
 
+  // Calculate Streak only
+  const dailyMap = {}
+  history.forEach(h => { dailyMap[h.work_date] = (dailyMap[h.work_date] || 0) + Number(h.pay) })
+  
+  let streak = 0
+  const todayObj = new Date()
+  
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(); d.setDate(todayObj.getDate() - i)
+    const dStr = d.toLocaleDateString('en-CA')
+    if (dailyMap[dStr] >= 1700) streak++
+    else if (i > 0) break
+  }
+
   return (
     <>
       <label className="date">Date<input type="date" value={date} max={todayPH()} onChange={(e) => setDate(e.target.value)} /></label>
+      
+      {/* Only showing Streak now */}
+      <section className="stats" style={{ marginBottom: 14 }}>
+        <Stat icon="🔥" label={t.streak} value={`${streak} ${t.daysHit}`} />
+      </section>
+
       <div className="driver-grid">
         <div className="col">
           <section className="card hero">
             <div className="hero-top">
-              <span className="chip">Daily quest</span>
-              <span className="timer" title="Time left before the daily cut-off (12:00 midnight)">
-                ⏱ {isToday ? hms(left) : 'Day closed'}
-              </span>
+              <span className="chip">{t.dailyQuest}</span>
+              <span className="timer">⏱ {isToday ? hms(left) : t.dayClosed}</span>
             </div>
-            <span className="muted">Earnings</span>
+            <span className="muted">{t.earnings}</span>
             <strong className="big">{peso(earn)}</strong>
             <div className="bar" role="progressbar" aria-valuemin="0" aria-valuemax="2200" aria-valuenow={Math.min(earn, 2200)}>
               <i style={{ width: pct + '%' }} />
             </div>
             <p className="goal">
-              {next ? <>Earn <b>{peso(next[0] - earn)}</b> more to reach the {peso(next[1])} basic rate.</>
-                : <>You reached the top tier: {peso(500)} basic rate. 🎉</>}
+              {next ? <>Earn <b>{peso(next[0] - earn)}</b> {t.earnMore} {peso(next[1])} {t.basicRate}</>
+                : <>{t.topTier}</>}
             </p>
             <p className="reward">
               <span className="coin" aria-hidden="true">₱</span>
-              {basic > 0 ? `Basic rate now: ${peso(basic)}` : 'Daily earnings of ₱1,700 unlock the first tier.'}
+              {basic > 0 ? `${t.basicRateNow} ${peso(basic)}` : t.unlockFirst}
             </p>
           </section>
           <section className="stats">
-            <Stat icon="📍" label="Distance" value={`${km.toFixed(1)} km`} />
-            <Stat icon="📦" label="Trips" value={rows.length} />
+            <Stat icon="📍" label={t.distance} value={`${km.toFixed(1)} km`} />
+            <Stat icon="📦" label={t.trips} value={rows.length} />
           </section>
         </div>
         <section className="card tiers-card">
-          <h2>Tiers</h2>
+          <h2>{t.tiers}</h2>
           <ul className="tiers">
             {[...TIERS].reverse().map(([min, b]) => {
               const on = earn >= min
@@ -264,16 +340,15 @@ function Driver() {
               )
             })}
           </ul>
-          <p className="muted small">Cash advance is optional. Daily cut-off is 12:00 midnight.</p>
+          <p className="muted small">{t.cashAdvance}</p>
         </section>
       </div>
-      <p className="muted small center">Last updated {updated?.toLocaleTimeString()}. Records are uploaded about every 2 hours.</p>
+      <p className="muted small center">{t.lastUpdated} {updated?.toLocaleTimeString()}. {t.recordsUploaded}</p>
     </>
   )
 }
 
 /* ---------- admin ---------- */
-
 function Admin() {
   const [tab, setTab] = useState('drivers')
   const [synced, setSynced] = useState(0)
@@ -283,8 +358,11 @@ function Admin() {
       <nav className="tabs">
         <button className={tab === 'drivers' ? 'primary' : 'ghost'} onClick={() => setTab('drivers')}>All drivers</button>
         <button className={tab === 'upload' ? 'primary' : 'ghost'} onClick={() => setTab('upload')}>Upload CSV</button>
+        <button className={tab === 'create' ? 'primary' : 'ghost'} onClick={() => setTab('create')}>New driver</button>
       </nav>
-      {tab === 'drivers' ? <Drivers /> : <Upload onUploaded={() => setSynced((n) => n + 1)} />}
+      {tab === 'drivers' && <Drivers />}
+      {tab === 'upload' && <Upload onUploaded={() => setSynced((n) => n + 1)} />}
+      {tab === 'create' && <CreateDriver />}
     </>
   )
 }
@@ -295,15 +373,16 @@ function Drivers() {
   const [people, setPeople] = useState([])
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
-  const [confirm, setConfirm] = useState(null) // null | 'day' | 'before'
+  const [confirm, setConfirm] = useState(null)
   const [beforeCount, setBeforeCount] = useState(0)
   const [deleting, setDeleting] = useState(false)
   const [notice, setNotice] = useState('')
+  const [addDriverSap, setAddDriverSap] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     let all = [], from = 0
-    for (;;) { // Supabase returns max 1000 rows per request, so page through
+    for (;;) {
       const { data } = await supabase.from('orders').select('sap_profile_id,pay,distance')
         .eq('work_date', date).order('order_id').range(from, from + 999)
       all = all.concat(data || [])
@@ -313,6 +392,7 @@ function Drivers() {
     const { data: p } = await supabase.from('profiles').select('full_name,sap_profile_id').eq('role', 'driver')
     setOrders(all); setPeople(p || []); setLoading(false)
   }, [date])
+
   useEffect(() => { load() }, [load])
 
   const map = new Map(people.map((p) => [p.sap_profile_id, { sap: p.sap_profile_id, name: p.full_name || '—', earn: 0, km: 0, trips: 0 }]))
@@ -342,12 +422,12 @@ function Drivers() {
 
   const doDelete = async () => {
     setDeleting(true); setNotice('')
-    let q = supabase.from('orders').delete({ count: 'exact' })
-    q = confirm === 'day' ? q.eq('work_date', date) : q.lt('work_date', date)
-    const { error, count } = await q
+    let query = supabase.from('orders').delete({ count: 'exact' })
+    query = confirm === 'day' ? query.eq('work_date', date) : query.lt('work_date', date)
+    const { error, count } = await query
     setDeleting(false); setConfirm(null)
     if (error) return setNotice('Delete failed: ' + error.message)
-    if (!count) return setNotice('Nothing was deleted. Check that your admin account has delete permission on the orders table.')
+    if (!count) return setNotice('Nothing was deleted. Check your permissions.')
     setNotice(`Deleted ${count.toLocaleString()} orders.`)
     load()
   }
@@ -360,6 +440,22 @@ function Drivers() {
         <button className="ghost" onClick={load}>Refresh</button>
         <button className="ghost" onClick={exportCsv}>Export CSV</button>
       </div>
+
+      {/* Clean up data section */}
+      <section className="card danger" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h2 style={{ fontSize: '18px', margin: 0 }}>Clean up data</h2>
+            <p className="muted small" style={{ margin: '4px 0 0 0' }}>Delete old orders manually. Note: 60-day auto-cleanup is already active.</p>
+          </div>
+          <div className="row end" style={{ margin: 0 }}>
+            <button className="del" disabled={!orders.length} onClick={() => setConfirm('day')}>
+              Delete {date} ({orders.length.toLocaleString()} orders)
+            </button>
+            <button className="del ghost-del" onClick={askBefore}>Delete before {date}</button>
+          </div>
+        </div>
+      </section>
 
       <section className="stats four">
         <Stat icon="💰" label="Total earnings" value={peso(total)} />
@@ -377,7 +473,14 @@ function Drivers() {
             <tbody>
               {list.map((d) => (
                 <tr key={d.sap} className={d.earn >= 1700 ? 'on' : ''}>
-                  <td data-label="Driver" className="name">{d.name}</td>
+                  <td data-label="Driver" className="name">
+                    {d.name}
+                    {d.name === 'Not registered' && (
+                      <button className="mini primary" style={{ marginLeft: 8 }} onClick={() => setAddDriverSap(d.sap)}>
+                        + Add
+                      </button>
+                    )}
+                  </td>
                   <td data-label="ID">{d.sap}</td>
                   <td data-label="Trips">{d.trips}</td>
                   <td data-label="Km">{d.km.toFixed(1)}</td>
@@ -391,30 +494,29 @@ function Drivers() {
         )}
       </section>
 
-      <section className="card danger">
-        <h2>Clean up data</h2>
-        <p className="muted">Delete old orders to keep the app fast. This can’t be undone, so export a CSV first if you need a copy.</p>
-        <div className="row">
-          <button className="del" disabled={!orders.length} onClick={() => setConfirm('day')}>
-            Delete {date} ({orders.length.toLocaleString()} orders)
-          </button>
-          <button className="del ghost-del" onClick={askBefore}>Delete everything before {date}</button>
-        </div>
-      </section>
-
       {confirm && (
         <div className="overlay" role="dialog" aria-modal="true" onClick={() => !deleting && setConfirm(null)}>
           <div className="modal card" onClick={(e) => e.stopPropagation()}>
             <h2>{confirm === 'day' ? `Delete ${date}?` : `Delete before ${date}?`}</h2>
             <p>
               {confirm === 'day'
-                ? <>This permanently deletes <b>{orders.length.toLocaleString()} orders</b> for {date}. Driver accounts are not affected.</>
-                : <>This permanently deletes <b>{beforeCount.toLocaleString()} orders</b> dated before {date}. Driver accounts are not affected.</>}
+                ? <>This permanently deletes <b>{orders.length.toLocaleString()} orders</b> for {date}.</>
+                : <>This permanently deletes <b>{beforeCount.toLocaleString()} orders</b> dated before {date}.</>}
             </p>
             <div className="row end">
               <button className="ghost" disabled={deleting} onClick={() => setConfirm(null)}>Cancel</button>
               <button className="del" disabled={deleting} onClick={doDelete}>{deleting ? 'Deleting…' : 'Yes, delete'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {addDriverSap && (
+        <div className="overlay" role="dialog" aria-modal="true" onClick={() => setAddDriverSap(null)}>
+          <div className="modal card" onClick={(e) => e.stopPropagation()}>
+            <h2>Add driver account</h2>
+            <p className="muted">Sap Profile ID: <b>{addDriverSap}</b></p>
+            <CreateDriver initialSap={addDriverSap} onDone={() => { setAddDriverSap(null); load(); }} />
           </div>
         </div>
       )}
@@ -452,7 +554,7 @@ function Upload({ onUploaded }) {
         }
         await supabase.from('upload_log').insert({ rows_count: rows.length })
         onUploaded?.()
-        setMsg(`Done. ${rows.length} orders saved${skipped ? `, ${skipped} rows skipped (missing Order ID, Sap Profile Id or Create Time)` : ''}.`)
+        setMsg(`Done. ${rows.length} orders saved${skipped ? `, ${skipped} rows skipped.` : ''}.`)
         setBusy(false); e.target.value = ''
       },
       error: (er) => { setBusy(false); setMsg('Could not read file: ' + er.message) },
@@ -462,9 +564,68 @@ function Upload({ onUploaded }) {
   return (
     <section className="card">
       <h2>Upload CSV</h2>
-      <p className="muted">Upload the latest export. Orders already saved are updated, not duplicated, so overlapping files are fine.</p>
+      <p className="muted">Upload the latest export. Orders already saved are updated, not duplicated.</p>
       <input type="file" accept=".csv" onChange={onFile} disabled={busy} />
       {msg && <p>{msg}</p>}
     </section>
+  )
+}
+
+function CreateDriver({ initialSap = '', onDone }) {
+  const [form, setForm] = useState({ full_name: '', sap_profile_id: initialSap, email: '', password: '' })
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [show, setShow] = useState(false)
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+
+  const genPassword = () => {
+    const c = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+    let p = ''
+    for (let i = 0; i < 10; i++) p += c[Math.floor(Math.random() * c.length)]
+    setForm({ ...form, password: p }); setShow(true)
+  }
+
+  const submit = async (e) => {
+    e.preventDefault(); setBusy(true); setErr(''); setMsg('')
+    
+    const { error } = await supabase.rpc('admin_create_driver', {
+      p_email: form.email,
+      p_password: form.password,
+      p_full_name: form.full_name,
+      p_sap_profile_id: form.sap_profile_id
+    })
+    
+    setBusy(false)
+    if (error) return setErr(error.message)
+    
+    setMsg(`Driver created successfully!\nEmail: ${form.email}\nPassword: ${form.password}`)
+    setForm({ full_name: '', sap_profile_id: '', email: '', password: '' })
+    onDone?.()
+  }
+
+  return (
+    <div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <label>Full name<input value={form.full_name} onChange={set('full_name')} required /></label>
+        <label>Sap Profile ID<input value={form.sap_profile_id} onChange={set('sap_profile_id')} required /></label>
+        <label>Email<input type="email" value={form.email} onChange={set('email')} required /></label>
+        <label>
+          Password
+          <div className="pw-row">
+            <input type={show ? 'text' : 'password'} value={form.password} onChange={set('password')} minLength={6} required />
+            <button type="button" className="ghost icon" onClick={() => setShow((s) => !s)}>{show ? '🙈' : '👁️'}</button>
+            <button type="button" className="ghost" onClick={genPassword}>Generate</button>
+          </div>
+        </label>
+        {err && <p className="err">{err}</p>}
+        {msg && <p className="creds">{msg}</p>}
+        <div className="row end">
+          {onDone && <button type="button" className="ghost" onClick={onDone}>Cancel</button>}
+          <button className="primary" disabled={busy}>{busy ? 'Creating…' : 'Create driver'}</button>
+        </div>
+      </form>
+    </div>
   )
 }
