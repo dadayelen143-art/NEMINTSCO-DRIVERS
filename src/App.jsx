@@ -249,14 +249,14 @@ function Driver({ profile }) {
     const { data: todayData } = await supabase.from('orders').select('pay,distance')
       .eq('work_date', date).eq('sap_profile_id', profile.sap_profile_id)
     setRows(todayData || [])
-    
+
     // Fetch history for the last 30 days
     const past30 = new Date(); past30.setDate(past30.getDate() - 30)
     const past30Str = past30.toLocaleDateString('en-CA')
     const { data: histData } = await supabase.from('orders').select('work_date,pay')
       .eq('sap_profile_id', profile.sap_profile_id).gte('work_date', past30Str)
     setHistory(histData || [])
-    
+
     setUpdated(new Date())
   }, [date, profile.sap_profile_id])
 
@@ -278,13 +278,13 @@ function Driver({ profile }) {
   const basic = idx >= 0 ? TIERS[idx][1] : 0
   const pct = Math.min(100, (earn / 2200) * 100)
 
-  // Calculate Streak only
+  // Streak
   const dailyMap = {}
-  history.forEach(h => { dailyMap[h.work_date] = (dailyMap[h.work_date] || 0) + Number(h.pay) })
-  
+  history.forEach((h) => { dailyMap[h.work_date] = (dailyMap[h.work_date] || 0) + Number(h.pay) })
+
   let streak = 0
   const todayObj = new Date()
-  
+
   for (let i = 0; i < 30; i++) {
     const d = new Date(); d.setDate(todayObj.getDate() - i)
     const dStr = d.toLocaleDateString('en-CA')
@@ -295,8 +295,7 @@ function Driver({ profile }) {
   return (
     <>
       <label className="date">Date<input type="date" value={date} max={todayPH()} onChange={(e) => setDate(e.target.value)} /></label>
-      
-      {/* Only showing Streak now */}
+
       <section className="stats" style={{ marginBottom: 14 }}>
         <Stat icon="🔥" label={t.streak} value={`${streak} ${t.daysHit}`} />
       </section>
@@ -379,6 +378,11 @@ function Drivers() {
   const [notice, setNotice] = useState('')
   const [addDriverSap, setAddDriverSap] = useState(null)
 
+  // delete driver
+  const [removeFor, setRemoveFor] = useState(null) // { sap, name }
+  const [removeData, setRemoveData] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     let all = [], from = 0
@@ -432,6 +436,19 @@ function Drivers() {
     load()
   }
 
+  const doRemove = async () => {
+    setRemoving(true); setNotice('')
+    const { error } = await supabase.rpc('admin_delete_driver', {
+      p_sap_profile_id: removeFor.sap,
+      p_delete_data: removeData,
+    })
+    setRemoving(false)
+    if (error) { setRemoveFor(null); return setNotice('Could not delete driver: ' + error.message) }
+    setNotice(`${removeFor.name} was removed.`)
+    setRemoveFor(null); setRemoveData(false)
+    load()
+  }
+
   return (
     <>
       <div className="row">
@@ -474,11 +491,11 @@ function Drivers() {
               {list.map((d) => (
                 <tr key={d.sap} className={d.earn >= 1700 ? 'on' : ''}>
                   <td data-label="Driver" className="name">
-                    {d.name}
-                    {d.name === 'Not registered' && (
-                      <button className="mini primary" style={{ marginLeft: 8 }} onClick={() => setAddDriverSap(d.sap)}>
-                        + Add
-                      </button>
+                    <span>{d.name}</span>
+                    {d.name === 'Not registered' ? (
+                      <button className="mini primary" onClick={() => setAddDriverSap(d.sap)}>+ Add</button>
+                    ) : (
+                      <button className="mini ghost-del" onClick={() => setRemoveFor({ sap: d.sap, name: d.name })}>Delete</button>
                     )}
                   </td>
                   <td data-label="ID">{d.sap}</td>
@@ -516,7 +533,24 @@ function Drivers() {
           <div className="modal card" onClick={(e) => e.stopPropagation()}>
             <h2>Add driver account</h2>
             <p className="muted">Sap Profile ID: <b>{addDriverSap}</b></p>
-            <CreateDriver initialSap={addDriverSap} onDone={() => { setAddDriverSap(null); load(); }} />
+            <CreateDriver initialSap={addDriverSap} onDone={() => { setAddDriverSap(null); load() }} />
+          </div>
+        </div>
+      )}
+
+      {removeFor && (
+        <div className="overlay" role="dialog" aria-modal="true" onClick={() => !removing && setRemoveFor(null)}>
+          <div className="modal card" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete {removeFor.name}?</h2>
+            <p>This removes their login and profile (ID {removeFor.sap}). They will no longer be able to sign in.</p>
+            <label style={{ flexDirection: 'row', alignItems: 'center', gap: 10, fontWeight: 500 }}>
+              <input type="checkbox" style={{ width: 'auto' }} checked={removeData} onChange={(e) => setRemoveData(e.target.checked)} />
+              Also delete their order history
+            </label>
+            <div className="row end">
+              <button className="ghost" disabled={removing} onClick={() => setRemoveFor(null)}>Cancel</button>
+              <button className="del" disabled={removing} onClick={doRemove}>{removing ? 'Deleting…' : 'Yes, delete driver'}</button>
+            </div>
           </div>
         </div>
       )}
@@ -589,17 +623,17 @@ function CreateDriver({ initialSap = '', onDone }) {
 
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr(''); setMsg('')
-    
+
     const { error } = await supabase.rpc('admin_create_driver', {
       p_email: form.email,
       p_password: form.password,
       p_full_name: form.full_name,
-      p_sap_profile_id: form.sap_profile_id
+      p_sap_profile_id: form.sap_profile_id,
     })
-    
+
     setBusy(false)
     if (error) return setErr(error.message)
-    
+
     setMsg(`Driver created successfully!\nEmail: ${form.email}\nPassword: ${form.password}`)
     setForm({ full_name: '', sap_profile_id: '', email: '', password: '' })
     onDone?.()
