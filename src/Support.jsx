@@ -1,5 +1,6 @@
 // src/Support.jsx
 // Driver-side help: Panel 1 = call customer service, Panel 2 = end-trip guides (English / Tagalog)
+// Styles for this component live in index.css (no separate CSS import needed).
 import { useState } from 'react'
 
 const PHONE_DISPLAY = '0917 680 5377'
