@@ -1,7 +1,97 @@
 // src/Support.jsx
 // Driver-side help: Panel 1 = call customer service, Panel 2 = end-trip guides (English / Tagalog)
-// Styles for this component live in index.css (no separate CSS import needed).
+// Styles are embedded below in the CSS constant, so no separate CSS file or import is needed.
 import { useState } from 'react'
+
+/* ---------- styles (embedded so they always load with this component) ---------- */
+const CSS = `
+/* ---------- Support: customer service + guides ---------- */
+/* local colour variables so this section looks right no matter which global CSS file is loaded */
+.support{
+  --sun:#F7B500;--sun-d:#E59E00;--sun-l:#FFF1BF;--ink:#1D1B16;--muted:#7A7261;
+  --card:#FFFFFF;--line:#F1E6BF;--soft:#FFFCF0;
+}
+:root[data-theme='dark'] .support{
+  --ink:#F6F1E3;--muted:#A89F86;--card:#1F1C14;--line:#3A3320;--soft:#26221A;--sun-l:#3A2F0A;
+}
+.support{margin-top:6px}
+.support-title{margin:6px 0 12px;font-size:22px}
+.support-grid{display:grid;gap:14px;grid-template-columns:1fr}
+
+.panel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.panel-head>div:not(.seg){flex:1 1 160px;min-width:0}
+.panel-head h2{margin:0;font-size:18px}
+.panel-head p{margin:2px 0 0}
+.seg{display:flex;gap:6px}
+
+/* panel 1: customer service */
+.call-panel{gap:12px}
+a.call-btn{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:16px 18px;border-radius:999px;text-decoration:none;
+  background:var(--sun);color:#1D1B16;font-weight:800;font-size:17px;line-height:1.2;
+  box-shadow:0 8px 18px rgba(229,158,0,.4);transition:transform .1s,background .2s;
+}
+a.call-btn:hover{background:var(--sun-d)}
+a.call-btn:active{transform:scale(.98)}
+a.call-btn>span:first-child{font-size:24px}
+a.call-btn small{display:block;font-size:14px;font-weight:600;opacity:.8;letter-spacing:.03em}
+.copy-btn{align-self:center}
+.after-title{margin:6px 0 0;font-size:15px;font-weight:700;color:var(--muted)}
+.call-steps{list-style:none;margin:0;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:8px}
+.call-steps li{
+  counter-increment:s;display:flex;gap:12px;align-items:flex-start;
+  background:var(--soft);border-radius:14px;padding:10px 12px;font-size:14px;
+}
+.call-steps li::before{
+  content:counter(s);flex:none;display:grid;place-items:center;width:26px;height:26px;
+  border-radius:50%;background:var(--sun);color:#1D1B16;font-weight:800;font-size:13px;
+}
+
+/* Facebook page callout */
+.fb-card{
+  display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;
+  background:var(--sun-l);border:1px solid var(--sun);
+}
+.fb-ico{flex:none;font-size:26px;line-height:1}
+.fb-card strong{display:block;font-size:15px;margin-bottom:2px}
+.fb-card p{margin:0 0 10px;font-size:14px;line-height:1.55}
+a.fb-btn{
+  display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;
+  padding:10px 16px;border-radius:14px;text-decoration:none;
+  background:#1877F2;color:#fff;font-weight:700;font-size:14px;
+}
+a.fb-btn:hover{background:#1466D1}
+a.fb-btn small{font-size:12px;font-weight:500;opacity:.85}
+
+/* panel 2: guides */
+.guide-panel{gap:10px}
+.guide-group h3{margin:10px 0 8px;font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.acc{
+  border:1px solid var(--line);border-radius:14px;background:var(--soft);
+  margin-bottom:8px;overflow:hidden;
+}
+.acc summary{
+  cursor:pointer;list-style:none;padding:12px 14px;font-weight:600;font-size:15px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary::after{content:'＋';flex:none;color:var(--sun-d);font-weight:800}
+.acc[open] summary::after{content:'−'}
+.acc[open]{background:var(--sun-l);border-color:var(--sun)}
+.acc p{margin:0;padding:0 14px 14px;font-size:14px;line-height:1.6}
+.guide-link{
+  align-self:flex-start;margin-top:4px;font-weight:700;font-size:14px;
+  color:var(--sun-d);text-decoration:none;border-bottom:2px solid var(--sun);
+}
+.guide-link:hover{color:var(--ink)}
+
+@media (min-width:720px){
+  .support-grid{grid-template-columns:1.4fr 1fr;align-items:start}
+  .guide-panel{order:1}
+  .call-panel{order:2}
+}
+`
 
 const PHONE_DISPLAY = '0917 680 5377'
 const PHONE_TEL = '+639176805377'
@@ -144,6 +234,7 @@ export default function Support({ lang = 'en' }) {
 
   return (
     <section className="support" aria-labelledby="support-title">
+      <style>{CSS}</style>
       <h2 id="support-title" className="support-title">{u.title}</h2>
       <div className="support-grid">
         {/* ---------- Panel 1: customer service ---------- */}
