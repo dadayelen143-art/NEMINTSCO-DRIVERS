@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, createContext, useContext } from 'rea
 import Papa from 'papaparse'
 import { supabase } from './supabase'
 import { TRANSLATIONS } from './i18n'
+import Support from './Support'
 
 const TIERS = [[1700, 0], [1800, 100], [1900, 200], [2000, 300], [2100, 400], [2200, 500]]
 const peso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -195,7 +196,7 @@ export default function App() {
         </header>
         {profile.missing
           ? <p className="card">Your account isn't set up yet. Please contact your dispatcher.</p>
-          : isAdmin ? <Admin /> : <Driver profile={profile} />}
+          : isAdmin ? <Admin /> : <Driver profile={profile} lang={lang} />}
       </main>
     </LangContext.Provider>
   )
@@ -236,7 +237,7 @@ function Login({ theme, setTheme, lang, setLang }) {
 }
 
 /* ---------- driver ---------- */
-function Driver({ profile }) {
+function Driver({ profile, lang }) {
   const t = useLang()
   const [date, setDate] = useState(todayPH())
   const [rows, setRows] = useState([])
@@ -342,6 +343,9 @@ function Driver({ profile }) {
           <p className="muted small">{t.cashAdvance}</p>
         </section>
       </div>
+
+      <Support lang={lang} />
+
       <p className="muted small center">{t.lastUpdated} {updated?.toLocaleTimeString()}. {t.recordsUploaded}</p>
     </>
   )
