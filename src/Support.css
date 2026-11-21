@@ -33,6 +33,22 @@ a.call-btn small{display:block;font-size:14px;font-weight:600;opacity:.8;letter-
   border-radius:50%;background:var(--sun);color:#1D1B16;font-weight:800;font-size:13px;
 }
 
+/* Facebook page callout */
+.fb-card{
+  display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;
+  background:var(--sun-l);border:1px solid var(--sun);
+}
+.fb-ico{flex:none;font-size:26px;line-height:1}
+.fb-card strong{display:block;font-size:15px;margin-bottom:2px}
+.fb-card p{margin:0 0 10px;font-size:14px;line-height:1.55}
+a.fb-btn{
+  display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;
+  padding:10px 16px;border-radius:14px;text-decoration:none;
+  background:#1877F2;color:#fff;font-weight:700;font-size:14px;
+}
+a.fb-btn:hover{background:#1466D1}
+a.fb-btn small{font-size:12px;font-weight:500;opacity:.85}
+
 /* panel 2 */
 .guide-panel{gap:10px}
 .guide-group h3{margin:10px 0 8px;font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}

@@ -6,6 +6,8 @@ import './support.css'
 const PHONE_DISPLAY = '0917 680 5377'
 const PHONE_TEL = '+639176805377'
 const HELP_URL = 'https://www.greengsm.ph/en/helps'
+const FB_URL = 'https://www.facebook.com/kagreengsm'
+const FB_LABEL = 'facebook.com/kagreengsm'
 
 /* ---------- interface labels (app language: en / tl / ceb) ---------- */
 const UI = {
@@ -21,7 +23,11 @@ const UI = {
       'Tap “Call customer service” above.',
       'When the menu plays, press 2 for Drivers concern.',
       'Tell the agent your name, Sap Profile ID and the problem.',
+      'If the agent asks for a picture, send it to the Facebook page (see Guides). The page will reply with your end-trip code.',
     ],
+    fbTitle: 'Need an end-trip code?',
+    fbText: 'After calling customer service, take a picture as the agent instructs and send it to our Facebook page. The page will send you the code to end the trip.',
+    fbBtn: 'Open Facebook page',
     guideTitle: 'Guides',
     guideSub: 'Common problems when ending a trip.',
     forDrivers: 'For Green GSM drivers',
@@ -40,7 +46,11 @@ const UI = {
       'I-tap ang “Tawagan ang customer service” sa itaas.',
       'Kapag tumugtog ang menu, pindutin ang 2 para sa Drivers concern.',
       'Sabihin sa agent ang iyong pangalan, Sap Profile ID at ang problema.',
+      'Kung hihingi ang agent ng picture, ipadala ito sa Facebook page (tingnan ang Mga Gabay). Ipapadala ng page ang iyong end-trip code.',
     ],
+    fbTitle: 'Kailangan ng end-trip code?',
+    fbText: 'Pagkatawag sa customer service, kumuha ng picture ayon sa bilin ng agent at ipadala ito sa aming Facebook page. Ipapadala ng page ang code para matapos ang biyahe.',
+    fbBtn: 'Buksan ang Facebook page',
     guideTitle: 'Mga Gabay',
     guideSub: 'Mga karaniwang problema sa pag-end ng trip.',
     forDrivers: 'Para sa mga driver ng Green GSM',
@@ -59,7 +69,11 @@ const UI = {
       'Pindota ang “Tawag sa customer service” sa ibabaw.',
       'Kung mugawas ang menu, pindota ang 2 para sa Drivers concern.',
       'Ingna ang agent sa imong ngalan, Sap Profile ID ug ang problema.',
+      'Kung mangayo ang agent og picture, ipadala kini sa Facebook page (tan-awa ang Mga Giya). Ipadala sa page ang imong end-trip code.',
     ],
+    fbTitle: 'Kinahanglan og end-trip code?',
+    fbText: 'Human sa tawag sa customer service, kuhaa ang picture sumala sa sugo sa agent ug ipadala kini sa among Facebook page. Ipadala sa page ang code aron mahuman ang trip.',
+    fbBtn: 'Ablihi ang Facebook page',
     guideTitle: 'Mga Giya',
     guideSub: 'Kasagarang problema sa pag-end sa trip.',
     forDrivers: 'Para sa mga driver sa Green GSM',
@@ -170,6 +184,17 @@ export default function Support({ lang = 'en' }) {
             <div className="seg" role="group" aria-label="Guide language">
               <button type="button" className={gl === 'en' ? 'mini primary' : 'mini ghost'} onClick={() => setGl('en')}>English</button>
               <button type="button" className={gl === 'tl' ? 'mini primary' : 'mini ghost'} onClick={() => setGl('tl')}>Tagalog</button>
+            </div>
+          </div>
+
+          <div className="fb-card">
+            <span className="fb-ico" aria-hidden="true">💬</span>
+            <div>
+              <strong>{u.fbTitle}</strong>
+              <p>{u.fbText}</p>
+              <a className="fb-btn" href={FB_URL} target="_blank" rel="noopener noreferrer">
+                {u.fbBtn} ↗<small>{FB_LABEL}</small>
+              </a>
             </div>
           </div>
 
