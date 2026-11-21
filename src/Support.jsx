@@ -1,7 +1,6 @@
 // src/Support.jsx
 // Driver-side help: Panel 1 = call customer service, Panel 2 = end-trip guides (English / Tagalog)
 import { useState } from 'react'
-import './support.css'
 
 const PHONE_DISPLAY = '0917 680 5377'
 const PHONE_TEL = '+639176805377'
