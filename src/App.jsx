@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, createContext, useContext } from 'rea
 import Papa from 'papaparse'
 import { supabase } from './supabase'
 import { TRANSLATIONS } from './i18n'
-import Support from './Support'
+import Support from './support'
 
 const TIERS = [[1700, 0], [1800, 100], [1900, 200], [2000, 300], [2100, 400], [2200, 500]]
 const peso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
